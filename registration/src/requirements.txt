@@ -1,0 +1,9 @@
+kombu
+billiard
+celery
+Flask
+gunicorn
+redis
+scikit-build
+antspyx
+git+https://github.com/MIC-DKFZ/HD-BET

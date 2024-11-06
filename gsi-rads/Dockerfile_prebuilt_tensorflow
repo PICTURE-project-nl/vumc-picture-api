@@ -1,0 +1,63 @@
+# Stage 2: Prepare runtime image for both ARM and AMD architectures
+FROM python:3.7-slim-buster AS runtime
+
+COPY ./tensorflow_pkg /tmp/tensorflow_pkg
+
+RUN echo "deb http://archive.debian.org/debian buster main contrib non-free" > /etc/apt/sources.list
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    perl-modules perl \
+    liberror-perl git libqt5network5 qtbase5-dev qt5-default lsb-base \
+    x11-common libice6 libsm6 fontconfig libfontconfig1 \
+    libqt5gui5 libxcb-icccm4 libxcb-xinerama0
+
+RUN pip install --upgrade pip
+RUN pip install pyside2
+
+RUN apt-get install --reinstall libxcb-xinerama0
+
+
+# Install TensorFlow ARM64 binary only if the TARGET_ARCH is arm64
+ARG TARGET_ARCH
+RUN if [ "$TARGET_ARCH" = "arm64" ]; then \
+    pip install /tmp/tensorflow_pkg/tensorflow*.whl; \
+    else pip install tensorflow==1.13.1; \
+    fi
+
+ENV QT_DEBUG_PLUGINS=1
+ENV DISPLAY=host.docker.internal:0
+
+# RUN ln -s /usr/lib/x86_64-linux-gnu/libxcb-util.so.0 /usr/lib/x86_64-linux-gnu/libxcb-util.so.1
+
+COPY ./src /src
+RUN pip install -r /src/requirements-flask.txt
+
+RUN apt-get install -y binutils
+
+RUN pip install -r /src/requirements.txt
+
+RUN apt-get install fakeroot -y
+
+COPY ./entrypoint.sh /entrypoint.sh
+COPY ./config/supervisord.conf /etc/supervisord.conf
+RUN apt-get update && apt-get install -y supervisor
+
+# Apply custom patches
+COPY ./patches/redis/redis.py /usr/local/lib/python3.7/site-packages/celery/backends/redis.py
+COPY ./patches/redis/rpc.py /usr/local/lib/python3.7/site-packages/celery/backends/rpc.py
+COPY ./patches/kombu/connection.py /usr/local/lib/python3.7/site-packages/kombu/connection.py
+COPY ./patches/kombu/redis.py /usr/local/lib/python3.7/site-packages/kombu/transport/redis.py
+COPY ./patches/kombu/base.py /usr/local/lib/python3.7/site-packages/kombu/transport/base.py
+COPY ./patches/kombu/virtual-base.py /usr/local/lib/python3.7/site-packages/kombu/transport/virtual/base.py
+COPY ./patches/celery/worker.py /usr/local/lib/python3.7/site-packages/celery/worker/worker.py
+COPY ./patches/werkzeug/utils.py /usr/local/lib/python3.7/site-packages/werkzeug/utils.py
+COPY ./patches/werkzeug/exceptions.py /usr/local/lib/python3.7/site-packages/werkzeug/exceptions.py
+COPY ./patches/werkzeug/_internal.py /usr/local/lib/python3.7/site-packages/werkzeug/_internal.py
+
+RUN find /usr/local/lib/python3.7/site-packages/celery \( -type d -name .git -prune \) -o -type f -print0 | xargs -0 sed -i 's/kombu.async/kombu.asynchronous/g'
+RUN mv /usr/local/lib/python3.7/site-packages/kombu/async /usr/local/lib/python3.7/site-packages/kombu/asynchronous
+
+RUN mv /usr/local/lib/python3.7/site-packages/celery/backends/async.py /usr/local/lib/python3.7/site-packages/celery/backends/asynchronous.py
+
+CMD /entrypoint.sh

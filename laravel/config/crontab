@@ -1,0 +1,2 @@
+0 * * * * /usr/local/bin/freshclam --quiet
+* * * * * cd /var/www/laravel/vumc-picture-api && php artisan schedule:run >> /var/log/cron.log 2>&1

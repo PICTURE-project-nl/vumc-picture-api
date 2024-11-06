@@ -1,0 +1,8 @@
+kombu
+billiard
+celery
+Flask
+gunicorn
+redis
+scikit-build
+scikit-learn==1.3

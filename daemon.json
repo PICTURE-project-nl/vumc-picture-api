@@ -1,0 +1,14 @@
+{
+    "default-runtime": "nvidia",
+    "runtimes": {
+        "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    },
+    "default-shm-size": "1G",
+    "default-ulimits": {
+         "memlock": { "name":"memlock", "soft":  -1, "hard": -1 },
+         "stack"  : { "name":"stack", "soft": 67108864, "hard": 67108864 }
+    }
+}

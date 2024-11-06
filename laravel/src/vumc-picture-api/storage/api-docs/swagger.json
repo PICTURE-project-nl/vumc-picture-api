@@ -1,0 +1,1833 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Server for the VUMC PICTURE tool to upload, list and share brain maps. Created by Jorrit van den Berg from Active Collective",
+    "version": "1.0.0",
+    "title": "VUMC PICTURE API",
+    "termsOfService": "http://tool.pictureproject.nl/terms/",
+    "contact": {
+      "email": "jorrit@activecollective.nl"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "host": "pictureproject.nl:8081",
+  "basePath": "/api",
+  "tags": [
+    {
+      "name": "user",
+      "description": "Operations about a user (register and login)",
+      "externalDocs": {
+        "description": "Find out more",
+        "url": "http://swagger.io"
+      }
+    },
+    {
+      "name": "brain-map",
+      "description": "Operations about a brain map (upload, retrieval, delete and listings)",
+      "externalDocs": {
+        "description": "Find out more",
+        "url": "http://swagger.io"
+      }
+    }
+  ],
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/user": {
+      "get": {
+        "tags": [
+          "user"
+        ],
+        "summary": "get profile info of the authenticated user",
+        "description": "",
+        "operationId": "getUserProfile",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/definitions/User"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "register new user",
+        "description": "",
+        "operationId": "doRegister",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "institute",
+            "in": "formData",
+            "description": "the institution the user is affiliated to",
+            "required": true,
+            "type": "string",
+            "maxLength": 30
+          },
+          {
+            "name": "name",
+            "in": "formData",
+            "description": "full name of the user",
+            "required": true,
+            "type": "string",
+            "maxLength": 30
+          },
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "email",
+            "required": true,
+            "type": "string",
+            "maxLength": 40
+          },
+          {
+            "name": "password",
+            "in": "formData",
+            "description": "password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          },
+          {
+            "name": "vPassword",
+            "in": "formData",
+            "description": "verification password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "user registered",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "409": {
+            "$ref": "#/responses/ConflictError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "user"
+        ],
+        "summary": "update profile info of the authenticated user",
+        "description": "",
+        "operationId": "updateUserProfile",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "institute",
+            "in": "formData",
+            "description": "the institution the user is affiliated to",
+            "required": false,
+            "type": "string",
+            "maxLength": 30
+          },
+          {
+            "name": "name",
+            "in": "formData",
+            "description": "full name of the user",
+            "required": false,
+            "type": "string",
+            "maxLength": 30
+          },
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "email",
+            "required": false,
+            "type": "string",
+            "maxLength": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/definitions/User"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "user"
+        ],
+        "summary": "delete the user profile",
+        "description": "",
+        "operationId": "deleteUserProfile",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/user/activate/{token}": {
+      "get": {
+        "tags": [
+          "user"
+        ],
+        "summary": "validate the email address with the supplied token",
+        "description": "",
+        "operationId": "registerActivate",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "the activation token sended to the user",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "user object",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/user/resend-activation-mail": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "send a new activation mail",
+        "description": "",
+        "operationId": "resendActivationMail",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "the email address of the user",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/user/login": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "login a user",
+        "description": "",
+        "operationId": "doLogin",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "email",
+            "required": true,
+            "type": "string",
+            "maxLength": 40
+          },
+          {
+            "name": "password",
+            "in": "formData",
+            "description": "password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "user logged in",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/user/logout": {
+      "get": {
+        "tags": [
+          "user"
+        ],
+        "summary": "logout a user",
+        "description": "",
+        "operationId": "logout",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/user/change-password": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "change the password of the authenticated user",
+        "description": "",
+        "operationId": "changePassword",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "oldPassword",
+            "in": "formData",
+            "description": "the existing password",
+            "required": true,
+            "type": "string",
+            "maxLength": 40
+          },
+          {
+            "name": "newPassword",
+            "in": "formData",
+            "description": "the new password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          },
+          {
+            "name": "vPassword",
+            "in": "formData",
+            "description": "verification password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "password changed",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "409": {
+            "$ref": "#/responses/ConflictError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/user/request-password-reset": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "send a password reset mail",
+        "description": "",
+        "operationId": "requestPasswordReset",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "the email address of the user",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/user/find-password-reset/{token}": {
+      "get": {
+        "tags": [
+          "user"
+        ],
+        "summary": "verify the token from email",
+        "description": "",
+        "operationId": "findPasswordResetRequest",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "the token sended to the user",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "password reset object",
+            "schema": {
+              "$ref": "#/definitions/PasswordReset"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/user/reset-password": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "perform password reset",
+        "description": "",
+        "operationId": "resetPassword",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "formData",
+            "description": "the password reset token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "in": "formData",
+            "description": "the email address of the user",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "newPassword",
+            "in": "formData",
+            "description": "the new password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          },
+          {
+            "name": "vPassword",
+            "in": "formData",
+            "description": "verification password",
+            "required": true,
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "user object",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        }
+      }
+    },
+    "/brain-maps/upload": {
+      "get": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "checks if there is an upload process that should be resumed",
+        "description": "",
+        "operationId": "getUploadState",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "checked if there is an active upload",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId or null if none active",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                },
+                "processState": {
+                  "type": "string",
+                  "example": "segmented-upload",
+                  "description": "state of the upload process or null if none active"
+                },
+                "niftiMetadata": {
+                  "type": "array",
+                  "description": "list of items with metadata of nifti files",
+                  "items": {
+                    "$ref": "#/definitions/NiftiMetadata"
+                  }
+                },
+                "autoSegmentation": {
+                  "$ref": "#/definitions/AutoSegmentation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "uploads a brain map file",
+        "description": "",
+        "operationId": "uploadBrainMapFile",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "file to upload",
+            "required": true,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "posted brain map object",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/brain-maps/upload/{uploadId}": {
+      "put": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "allows to signal that brain map must be segmented automatically",
+        "description": "",
+        "operationId": "segmentBrainMapFile",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "description": "uploadId to modify",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "applyAutoSegmentation",
+            "in": "formData",
+            "description": "boolean indicating that auto segmentation should be applied",
+            "required": true,
+            "type": "boolean"
+          },
+          {
+            "name": "selectedT1cFileId",
+            "in": "formData",
+            "description": "Id of the file selected as T1c modality",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "selectedT1wFileId",
+            "in": "formData",
+            "description": "Id of the file selected as T1w modality",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "selectedT2wFileId",
+            "in": "formData",
+            "description": "Id of the file selected as T2w modality",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "selectedFLAIRFileId",
+            "in": "formData",
+            "description": "Id of the file selected as FLAIR modality",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "started auto segmentation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                },
+                "anonymizedNiftiFileURL": {
+                  "type": "string",
+                  "description": "URL to download the anonymized nifti file from",
+                  "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02.zip"
+                },
+                "niftiMetadata": {
+                  "type": "array",
+                  "description": "list of items with metadata of nifti files",
+                  "items": {
+                    "$ref": "#/definitions/NiftiMetadata"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "deletes uploaded brain map files",
+        "description": "",
+        "operationId": "deleteUpload",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "description": "uploadId to delete",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "upload brain map removed",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/brain-maps/upload-segmented": {
+      "post": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "uploads a segmented brain map file",
+        "description": "",
+        "operationId": "uploadSegmentedBrainMapFile",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "file to upload",
+            "required": true,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "uploaded segmented brain map file",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/brain-maps/upload-segmented/{uploadId}": {
+      "put": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "updates info for a segmented uploaded brain map file",
+        "description": "",
+        "operationId": "updateSegmentedUploadBrainMapFileInfo",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "description": "id of brain map upload",
+            "required": true,
+            "type": "string",
+            "maxLength": 40
+          },
+          {
+            "name": "age",
+            "in": "formData",
+            "description": "age of the patient",
+            "required": false,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150
+          },
+          {
+            "name": "GBM",
+            "in": "formData",
+            "description": "string containing clinical annotation",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "brainMapClassification",
+            "in": "formData",
+            "description": "string containing the classification of the brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "sharedBrainMap",
+            "in": "formData",
+            "description": "boolean indicating if brain map needs to be shared",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "isResearch",
+            "in": "formData",
+            "description": "boolean indicating if brain map is an atlas from the research team",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "folderName",
+            "in": "formData",
+            "description": "name of the brain map folder (only to be set for atlas brain map)",
+            "required": false,
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "name": "brainMapName",
+            "in": "formData",
+            "description": "name for the brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "brainMapNotes",
+            "in": "formData",
+            "description": "user provided notes on the brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "name": "mriDate",
+            "in": "formData",
+            "description": "date on which the MRI scan was performed",
+            "required": false,
+            "type": "string",
+            "format": "date",
+            "maxLength": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "updated segmented brain map object",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId",
+                  "example": "nda0jn82ywh8-2Dofs1h7B"
+                },
+                "age": {
+                  "type": "integer",
+                  "description": "age of the patient",
+                  "example": 51
+                },
+                "GBM": {
+                  "type": "string",
+                  "description": "string containing clinical annotation",
+                  "example": "GBM preop"
+                },
+                "brainMapClassification": {
+                  "type": "string",
+                  "description": "classification of the brain map",
+                  "example": "T1-weighted imaging"
+                },
+                "sharedBrainMap": {
+                  "type": "boolean",
+                  "description": "boolean indicating if this brain map is shared (true if this is the case)",
+                  "example": true
+                },
+                "isResearch": {
+                  "type": "boolean",
+                  "description": "boolean indicating if this is an atlas brain map",
+                  "example": false
+                },
+                "folderName": {
+                  "type": "string",
+                  "description": "name of the brain map folder",
+                  "example": "My MRI Maps"
+                },
+                "folderId": {
+                  "type": "integer",
+                  "description": "id of the brain map folder",
+                  "example": 1
+                },
+                "glioma": {
+                  "type": "string",
+                  "description": "size of the tumor",
+                  "example": "0.45 x 1.34 x 3.01"
+                },
+                "mriDate": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "date on which the MRI scan was performed",
+                  "example": "2018-09-21"
+                },
+                "lowResBrainMapFileURL": {
+                  "type": "string",
+                  "description": "URL to download the low res nifti file from",
+                  "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02"
+                },
+                "highResBrainMapFileURL": {
+                  "type": "string",
+                  "description": "URL to download the high res nifti file from",
+                  "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "deletes uploaded brain map files",
+        "description": "",
+        "operationId": "deleteSegmentedUpload",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "description": "uploadId to delete",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "upload segmented brain map removed",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "uploadId": {
+                  "type": "string",
+                  "description": "the uploadId"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/brain-maps": {
+      "get": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "retrieves the metadata of multiple brain maps and a folder name to id mapping",
+        "description": "",
+        "operationId": "getBrainMapList",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "list of brain maps, both private and atlas brain maps for authenticated users or only atlas brain maps for not authenticated users",
+            "schema": {
+              "$ref": "#/definitions/BrainMapList"
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/brain-map/{param}": {
+      "get": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "retrieves the metadata of a brain map, returns 401 if the user is not signed in and the brain map is not an atlas brain map",
+        "description": "",
+        "operationId": "getBrainMapMetadata",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "description": "id of the brain map or slug if it is a research brain map",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "brain map object",
+            "schema": {
+              "$ref": "#/definitions/BrainMap"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {},
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "updates the metadata of a brain map",
+        "description": "",
+        "operationId": "setBrainMapMetadata",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "description": "id of the brain map or slug if it is a research brain map",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "age",
+            "in": "formData",
+            "description": "age of the patient",
+            "required": false,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150
+          },
+          {
+            "name": "GBM",
+            "in": "formData",
+            "description": "string containing clinical annotation",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "brainMapName",
+            "in": "formData",
+            "description": "name of the brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "brainMapNotes",
+            "in": "formData",
+            "description": "user provided notes on the brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "name": "brainMapClassification",
+            "in": "formData",
+            "description": "string containing the classification of brain map",
+            "required": false,
+            "type": "string",
+            "maxLength": 60
+          },
+          {
+            "name": "sharedBrainMap",
+            "in": "formData",
+            "description": "boolean indicating if brain map needs to be shared",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "isResearch",
+            "in": "formData",
+            "description": "boolean indicating if brain map is an atlas from the research team",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "folderName",
+            "in": "formData",
+            "description": "name of the brain map folder (only to be set for atlas brain map)",
+            "required": false,
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "name": "mriDate",
+            "in": "formData",
+            "description": "date on which the MRI scan was performed",
+            "required": false,
+            "type": "string",
+            "format": "date",
+            "maxLength": 30
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "brain-map object",
+            "schema": {
+              "$ref": "#/definitions/BrainMap"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "brain-map"
+        ],
+        "summary": "deletes brain map files",
+        "description": "",
+        "operationId": "deleteBrainMap",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "description": "id of the brain map or slug if it is a research brain map",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "brain map object deleted",
+            "schema": {
+              "$ref": "#/definitions/BrainMap"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequestsError"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    }
+  },
+  "responses": {
+    "BadRequestError": {
+      "description": "bad request, input values missing or invalid"
+    },
+    "UnauthorizedError": {
+      "description": "unauthorized request",
+      "headers": {
+        "WWW_Authenticate": {
+          "type": "string"
+        }
+      }
+    },
+    "NotFoundError": {
+      "description": "requested object could not be found"
+    },
+    "ConflictError": {
+      "description": "trying to create an object that already exists or updating a variable with the same value"
+    },
+    "TooManyRequestsError": {
+      "description": "rate limit for endpoint was hit"
+    }
+  },
+  "securityDefinitions": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "definitions": {
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "the user id",
+          "example": "623594"
+        },
+        "name": {
+          "type": "string",
+          "description": "full name of the user",
+          "example": "John Doe"
+        },
+        "institute": {
+          "type": "string",
+          "description": "the institution the user is working at",
+          "example": "VUmc"
+        },
+        "email": {
+          "type": "string",
+          "description": "email address of the user",
+          "example": "john.doe@example.com"
+        },
+        "apiKey": {
+          "type": "string",
+          "description": "the api_key to perform requests with, only added in doLogin, doRegister and changePassword operations",
+          "example": "gK2xh02ebzc03kafu8ajdpsTT2erdmlef"
+        }
+      }
+    },
+    "PasswordReset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "the id of the password reset",
+          "example": 2
+        },
+        "email": {
+          "type": "string",
+          "description": "the email address of the user",
+          "example": "someone@example.com"
+        },
+        "token": {
+          "type": "string",
+          "description": "the password reset token",
+          "example": "32fidmk111m0dwqkmdk1212"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "the datetime on which the password reset object was created",
+          "example": "2018-10-27 12:05:21"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "the datetime on which the password reset request was updated the last time",
+          "example": "2018-10-27 12:05:21"
+        }
+      }
+    },
+    "Folder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "the id of the folder",
+          "example": 34
+        },
+        "name": {
+          "type": "string",
+          "description": "the name of the folder",
+          "example": "Picture-2018"
+        }
+      }
+    },
+    "BrainMap": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "the id of the brain map",
+          "example": "h93JdepU3djfekI"
+        },
+        "age": {
+          "type": "integer",
+          "description": "age of the patient",
+          "example": 51
+        },
+        "GBM": {
+          "type": "string",
+          "description": "string containing clinical annotation",
+          "example": "GBM preop"
+        },
+        "name": {
+          "type": "string",
+          "description": "the name of the brain map",
+          "example": "MRI patient G"
+        },
+        "slug": {
+          "type": "string",
+          "description": "pretty URL for research brain maps",
+          "example": "picture-2018"
+        },
+        "brainMapNotes": {
+          "type": "string",
+          "description": "user provided notes on the brain map",
+          "example": "lorem ipsum"
+        },
+        "brainMapClassification": {
+          "type": "string",
+          "description": "classification of the brain map",
+          "example": "T1-weighted imaging"
+        },
+        "glioma": {
+          "type": "string",
+          "description": "size of the tumor",
+          "example": "0.45 x 1.34 x 3.01"
+        },
+        "sharedBrainMap": {
+          "type": "boolean",
+          "description": "boolean indicating if this brain map is shared (true if this is the case)",
+          "example": true
+        },
+        "isResearch": {
+          "type": "boolean",
+          "description": "boolean indicating if brain map is an atlas from the research team",
+          "example": false
+        },
+        "folderName": {
+          "type": "string",
+          "description": "name of the brain map folder",
+          "example": "My MRI Maps"
+        },
+        "folderId": {
+          "type": "integer",
+          "description": "id of the brain map folder",
+          "example": 1
+        },
+        "expectedResidualVolume": {
+          "type": "number",
+          "description": "expected residual volume",
+          "example": 3.2
+        },
+        "expectedResectabilityIndex": {
+          "type": "number",
+          "description": "expected resectability index",
+          "example": 0.2
+        },
+        "uploadDate": {
+          "type": "string",
+          "format": "date",
+          "description": "date on which the brain map was uploaded",
+          "example": "2018-10-02"
+        },
+        "mriDate": {
+          "type": "string",
+          "format": "date",
+          "description": "date on which the MRI scan was performed",
+          "example": "2018-09-21"
+        },
+        "lowResBrainMap": {
+          "$ref": "#/definitions/LowResBrainMap"
+        },
+        "highResBrainMap": {
+          "$ref": "#/definitions/HighResBrainMap"
+        },
+        "T1cSliceFileURL": {
+          "type": "string",
+          "description": "URL to download a JPEG slice of the T1c modality",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/slices/file.jpg"
+        },
+        "T1wSliceFileURL": {
+          "type": "string",
+          "description": "URL to download a JPEG slice of the T1w modality",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/slices/file.jpg"
+        },
+        "T2wSliceFileURL": {
+          "type": "string",
+          "description": "URL to download a JPEG slice of the T2w modality",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/slices/file.jpg"
+        },
+        "FLAIRSliceFileURL": {
+          "type": "string",
+          "description": "URL to download a JPEG slice of the FLAIR modality",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/slices/file.jpg"
+        }
+      }
+    },
+    "BrainMapList": {
+      "type": "object",
+      "properties": {
+        "brainMaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BrainMap"
+          }
+        },
+        "folders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Folder"
+          }
+        }
+      }
+    },
+    "NiftiMetadata": {
+      "type": "object",
+      "properties": {
+        "fileId": {
+          "type": "integer",
+          "description": "id of the nifti file",
+          "example": 3
+        },
+        "fileName": {
+          "type": "string",
+          "description": "name of the nifti file",
+          "example": "AX_3D_SPGR_+C_.nii.gz"
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "nifti file size in kb",
+          "example": "14.3"
+        },
+        "niftiFileURL": {
+          "type": "string",
+          "description": "URL to download the nifti file",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/AX_3D_SPGR_+C_.nii.gz"
+        },
+        "sliceFileURL": {
+          "type": "string",
+          "description": "URL to download the JPG slice of the nifti file",
+          "example": "https://tool.pictureproject.nl/storage/nifti/h38vjwd7db9y02/AX_3D_SPGR_+C_.nii.jpg"
+        }
+      }
+    },
+    "AutoSegmentation": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "status of the automatic registration and segmentation",
+          "example": "failed"
+        },
+        "message": {
+          "type": "string",
+          "description": "details about the failed status",
+          "example": "process failed at registration step"
+        },
+        "registeredT1cAtlasFileURL": {
+          "type": "string",
+          "description": "URL to download the T1c to Atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/MNI152_T1_1mm_trans.nii.gz"
+        },
+        "registeredAtlasT1cFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1c nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/output_warped_image.nii.gz"
+        },
+        "registeredAtlasT1wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/T1w_trans.nii"
+        },
+        "registeredAtlasT2wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T2w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/T2w_trans.nii"
+        },
+        "registeredAtlasFlairFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to Flair nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/Flr_trans.nii"
+        },
+        "segmentationFileURL": {
+          "type": "string",
+          "description": "URL to download the segmentation nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/segmentation.nii"
+        },
+        "probabilityMapFileURL": {
+          "type": "string",
+          "description": "URL to download the probability map nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/probability_map.nii"
+        },
+        "binaryMapFileURL": {
+            "type": "string",
+            "description": "URL to download the binary map nifti file",
+            "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/binary_map.nii"
+        }
+      }
+    },
+    "LowResBrainMap": {
+      "type": "object",
+      "properties": {
+        "registeredT1cAtlasFileURL": {
+          "type": "string",
+          "description": "URL to download the T1c to Atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/MNI152_T1_1mm_trans.nii.gz"
+        },
+        "registeredAtlasT1cFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1c nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/output_warped_image.nii.gz"
+        },
+        "registeredAtlasT1wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/T1w_trans.nii"
+        },
+        "registeredAtlasT2wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T2w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/T2w_trans.nii"
+        },
+        "registeredAtlasFlairFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to Flair nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/Flr_trans.nii"
+        },
+        "segmentationFileURL": {
+          "type": "string",
+          "description": "URL to download the segmentation nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/segmentation.nii"
+        },
+        "transformedAtlasFileURL": {
+          "type": "string",
+          "description": "URL to download the transformed atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/transformed_atlas.nii"
+        },
+        "transformedSegmentationFileURL": {
+          "type": "string",
+          "description": "URL to download the transformed atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/transformed_segmentation.nii"
+        },
+        "probabilityMapFileURL": {
+          "type": "string",
+          "description": "URL to download the probability map nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/probability_map.nii"
+        },
+        "binaryMapFileURL": {
+          "type": "string",
+          "description": "URL to download the binary map nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/binary_map.nii"
+        },
+        "nrOfPatientsMapFileURL": {
+          "type": "string",
+          "description": "URL to download the nr of patients nifti file",
+          "example": "https://tool.pictureproject.nl/storage/l/h38vjwd7db9y02/nr_of_patients_map.nii"
+        }
+      }
+    },
+    "HighResBrainMap": {
+      "type": "object",
+      "properties": {
+        "registeredT1cAtlasFileURL": {
+          "type": "string",
+          "description": "URL to download the T1c to Atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/MNI152_T1_1mm_trans.nii.gz"
+        },
+        "registeredAtlasT1cFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1c nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/output_warped_image.nii.gz"
+        },
+        "registeredAtlasT1wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T1w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/T1w_trans.nii"
+        },
+        "registeredAtlasT2wFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to T2w nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/T2w_trans.nii"
+        },
+        "registeredAtlasFlairFileURL": {
+          "type": "string",
+          "description": "URL to download the Atlas to Flair nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/Flr_trans.nii"
+        },
+        "segmentationFileURL": {
+          "type": "string",
+          "description": "URL to download the segmentation nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/segmentation.nii"
+        },
+        "transformedAtlasFileURL": {
+          "type": "string",
+          "description": "URL to download the transformed atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/transformed_atlas.nii"
+        },
+        "transformedSegmentationFileURL": {
+          "type": "string",
+          "description": "URL to download the transformed atlas nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/transformed_segmentation.nii"
+        },
+        "probabilityMapFileURL": {
+          "type": "string",
+          "description": "URL to download the probability map nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/probability_map.nii"
+        },
+        "binaryMapFileURL": {
+            "type": "string",
+            "description": "URL to download the binary map nifti file",
+            "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/binary_map.nii"
+        },
+        "nrOfPatientsMapFileURL": {
+          "type": "string",
+          "description": "URL to download the nr of patients nifti file",
+          "example": "https://tool.pictureproject.nl/storage/h/h38vjwd7db9y02/nr_of_patients_map.nii          "
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Find out more about Swagger",
+    "url": "http://swagger.io"
+  }
+}
