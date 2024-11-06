@@ -2,22 +2,35 @@ import os
 import subprocess
 import sys
 
-# Check for environment variables with defaults
-network_prefix = os.getenv('NETWORK_PREFIX', 'default_prefix')
+# Helper function to log messages with debug information
+def log_debug(message):
+    print(f"DEBUG: {message}")
 
 # Function to detect NVIDIA GPU availability
 def detect_gpu():
     try:
-        subprocess.run(["nvidia-smi"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print("DEBUG: NVIDIA GPU detected.")
+        # Attempt to run the nvidia-smi command
+        result = subprocess.run(["nvidia-smi"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        log_debug("NVIDIA GPU detected.")
         return True
-    except subprocess.CalledProcessError:
-        print("DEBUG: No NVIDIA GPU detected, using CPU mode.")
+    except FileNotFoundError:
+        log_debug("nvidia-smi not found; assuming no GPU available and defaulting to CPU mode.")
         return False
+    except subprocess.CalledProcessError as e:
+        log_debug(f"nvidia-smi command failed with error: {e}; assuming no GPU available and defaulting to CPU mode.")
+        return False
+    except Exception as e:
+        log_debug(f"Unexpected error while detecting GPU: {e}; defaulting to CPU mode.")
+        return False
+
+# Check for environment variables with defaults
+network_prefix = os.getenv('NETWORK_PREFIX', 'default_prefix')
+log_debug(f"Network prefix set to: {network_prefix}")
 
 # Set GPU availability based on detection
 gpu_available = '1' if detect_gpu() else '0'
 device_id = os.getenv('GPU_DEVICE_ID', '0')  # Default GPU device ID
+log_debug(f"GPU available: {gpu_available} (1 for yes, 0 for no)")
 
 # Define GPU deploy section if a GPU is available
 gpu_deploy_section = f"""
@@ -119,13 +132,26 @@ volumes:
 """
 
 # Write the generated docker-compose.yml file
-output_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
-with open(output_path, "w") as f:
-    f.write(docker_compose_template)
+def write_docker_compose_file(output_path, content):
+    try:
+        with open(output_path, "w") as f:
+            f.write(content)
+        log_debug(f"docker-compose.generated.yml created successfully at {output_path}")
+    except Exception as e:
+        log_debug(f"Error writing docker-compose.generated.yml: {e}")
+        sys.exit(1)
 
-# Confirm if the file was successfully created
-if os.path.exists(output_path):
-    print(f"docker-compose.generated.yml created successfully at {output_path}")
-else:
-    print("Error: Failed to create docker-compose.generated.yml.")
-    sys.exit(1)
+# Main execution
+def main():
+    output_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
+    write_docker_compose_file(output_path, docker_compose_template)
+
+    # Confirm if the file was successfully created
+    if os.path.exists(output_path):
+        log_debug(f"File successfully created at {output_path}")
+    else:
+        log_debug("Error: docker-compose.generated.yml not found after writing. Check permissions and paths.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
