@@ -1,0 +1,5 @@
+secrets.env
+.idea
+laravel-storage
+.DS_Store
+docker-compose.generated.yml
