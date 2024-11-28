@@ -1,157 +1,186 @@
 import os
-import subprocess
-import sys
+import re
 
-# Helper function to log messages with debug information
-def log_debug(message):
-    print(f"DEBUG: {message}")
+# Get environment variables with fallback
+environment = os.getenv("ENVIRONMENT", "localhost")
+server_url = os.getenv("SERVER_URL", "localhost")
+network_prefix = os.getenv("NETWORK_PREFIX")
+letsencrypt_directory = os.getenv("LETSENCRYPT_DIRECTORY")
+letsencrypt_key_directory = os.getenv("LETSENCRYPT_KEY_DIRECTORY")
 
-# Function to detect NVIDIA GPU availability
-def detect_gpu():
-    try:
-        # Attempt to run the nvidia-smi command
-        result = subprocess.run(["nvidia-smi"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        log_debug("NVIDIA GPU detected.")
-        return True
-    except FileNotFoundError:
-        log_debug("nvidia-smi not found; assuming no GPU available and defaulting to CPU mode.")
-        return False
-    except subprocess.CalledProcessError as e:
-        log_debug(f"nvidia-smi command failed with error: {e}; assuming no GPU available and defaulting to CPU mode.")
-        return False
-    except Exception as e:
-        log_debug(f"Unexpected error while detecting GPU: {e}; defaulting to CPU mode.")
-        return False
+# Strip protocol (http:// or https://) from server_url if present
+server_url = re.sub(r'^https?://', '', server_url)
 
-# Check for environment variables with defaults
-network_prefix = os.getenv('NETWORK_PREFIX', 'default_prefix')
-log_debug(f"Network prefix set to: {network_prefix}")
+# Prompt if NETWORK_PREFIX is missing
+if network_prefix is None:
+    print("Warning: NETWORK_PREFIX is not set.")
+    use_default = input("Do you want to proceed with 'default_prefix' for testing? (yes/no): ").strip().lower()
 
-# Set GPU availability based on detection
-gpu_available = '1' if detect_gpu() else '0'
-device_id = os.getenv('GPU_DEVICE_ID', '0')  # Default GPU device ID
-log_debug(f"GPU available: {gpu_available} (1 for yes, 0 for no)")
+    if use_default == "yes":
+        network_prefix = "default_prefix"
+        print("Proceeding with 'default_prefix' as the network prefix.")
+    else:
+        print("Please set NETWORK_PREFIX before running the script.")
+        exit(1)
 
-# Define GPU deploy section if a GPU is available
-gpu_deploy_section = f"""
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['{device_id}']
-              capabilities: [gpu]
-""" if gpu_available == '1' else ""
+# Verify SSL files for server environment
+if environment == "server":
+    if not os.path.exists("./options-ssl-nginx.conf"):
+        print("Warning: options-ssl-nginx.conf is missing in the root directory. SSL configuration may fail.")
+    if not os.path.isdir("./certificates"):
+        print("Warning: SSL certificates directory is missing; ensure it exists and contains required files for production.")
 
-# Docker Compose template with GPU and network configurations
-docker_compose_template = f"""
-version: "3.8"
+# Define nginx configuration templates
+nginx_conf_localhost = """
+worker_processes  5;
+worker_rlimit_nofile 8192;
+
+events {
+  worker_connections  4096;
+}
+
+http {
+  default_type application/octet-stream;
+
+  log_format main '$remote_addr - $remote_user [$time_local] $status '
+    '"$request" $body_bytes_sent "$http_referer" '
+    '"$http_user_agent" "$http_x_forwarded_for"';
+
+  sendfile on;
+  tcp_nopush on;
+  server_names_hash_bucket_size 128;
+  client_max_body_size 500M;
+  server_tokens off;
+
+  server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+      proxy_pass http://frontend:8000;
+    }
+
+    location /api {
+      proxy_pass http://api:80;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+  }
+}
+"""
+
+nginx_conf_server = f"""
+
+worker_processes  5;
+worker_rlimit_nofile 8192;
+
+events {{
+  worker_connections  4096;
+}}
+
+http {{
+  default_type application/octet-stream;
+
+  log_format main '$remote_addr - $remote_user [$time_local] $status '
+    '"$request" $body_bytes_sent "$http_referer" '
+    '"$http_user_agent" "$http_x_forwarded_for"';
+
+  sendfile on;
+  tcp_nopush on;
+  server_names_hash_bucket_size 128;
+  client_max_body_size 500M;
+  server_tokens off;
+
+  server {{
+    listen 80;
+    listen 443 ssl;
+    server_name tool.pictureproject.nl;
+
+    ssl_certificate {letsencrypt_key_directory}fullchain.pem;
+    ssl_certificate_key {letsencrypt_key_directory}privkey.pem;
+    include {letsencrypt_directory}/options-ssl-nginx.conf;
+    ssl_dhparam {letsencrypt_directory}/ssl-dhparams.pem;
+
+    location / {{
+      proxy_pass http://frontend:8000;
+    }}
+
+    location /api {{
+      proxy_pass http://api:80;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+  }}
+}}
+
+"""
+
+# Define Docker Compose configuration templates
+docker_compose_localhost = f"""
+version: '3.8'
+
 services:
-  db:
-    image: mysql:8.0
-    env_file:
-      - secrets.env
-    volumes:
-      - ./db_test_data:/docker-entrypoint-initdb.d/
-      - mysql_data:/var/lib/mysql
-    networks:
-      - {network_prefix}_internal
-    restart: always
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    depends_on:
-      - db
-    environment:
-      - PMA_HOST=db
+  nginx:
+    build: .
     ports:
-      - 9090:80
+      - "80:80"
     networks:
-      - {network_prefix}_internal
-    restart: always
-
-  redis:
-    image: bitnami/redis:latest
-    environment:
-      - ALLOW_EMPTY_PASSWORD=yes
-    networks:
-      - {network_prefix}_internal
-    restart: always
-
-  api:
-    build: ./laravel
+      - proxy
     volumes:
-      - ./laravel/src:/var/www/laravel
-      - ./laravel-storage:/var/www/laravel/vumc-picture-api/storage
-    env_file:
-      - common.env
-      - secrets.env
-    networks:
-      - {network_prefix}_proxy
-      - {network_prefix}_internal
-      - {network_prefix}_filtering
-    restart: always
-
-  registration:
-    build: ./registration
-    volumes:
-      - registered_nii_data:/wdir/out
-    networks:
-      - {network_prefix}_internal
-    restart: always
-    {gpu_deploy_section}
-
-  segmentation:
-    build: ./segmentation
-    shm_size: 1gb
-    networks:
-      - {network_prefix}_internal
-    restart: always
-    {gpu_deploy_section}
-
-  gsi-rads:
-    build: ./gsi-rads
-    volumes:
-      - gsi_rads_output:/gsi_rads/out
-    networks:
-      - {network_prefix}_internal
+      - ./nginx.conf:/etc/nginx/nginx.conf
     restart: always
 
 networks:
-  {network_prefix}_proxy:
+  proxy:
     external: true
-  {network_prefix}_internal:
-    external: false
-  {network_prefix}_filtering:
-    external: true
-
+    name: "{network_prefix}_proxy"
 volumes:
-  mysql_data:
-  registered_nii_data:
-  gsi_rads_output:
+  certificates:
 """
 
-# Write the generated docker-compose.yml file
-def write_docker_compose_file(output_path, content):
-    try:
-        with open(output_path, "w") as f:
-            f.write(content)
-        log_debug(f"docker-compose.generated.yml created successfully at {output_path}")
-    except Exception as e:
-        log_debug(f"Error writing docker-compose.generated.yml: {e}")
-        sys.exit(1)
+docker_compose_server = f"""
+version: '3.8'
 
-# Main execution
-def main():
-    output_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
-    write_docker_compose_file(output_path, docker_compose_template)
+services:
+  nginx:
+    build: .
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - proxy
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - "{letsencrypt_directory}:/etc/letsencrypt/"
+      - ./options-ssl-nginx.conf:/etc/letsencrypt/options-ssl-nginx.conf
+    restart: always
 
-    # Confirm if the file was successfully created
-    if os.path.exists(output_path):
-        log_debug(f"File successfully created at {output_path}")
-    else:
-        log_debug("Error: docker-compose.generated.yml not found after writing. Check permissions and paths.")
-        sys.exit(1)
+networks:
+  proxy:
+    external: true
+    name: "2ef2919d1441cd450c6ec711ec5cd65c464912dab371ad6f76640f93055f7edd_proxy"
+volumes:
+  certificates:
+"""
 
-if __name__ == "__main__":
-    main()
+# Choose configurations based on the environment
+nginx_conf_content = nginx_conf_server if environment == "server" else nginx_conf_localhost
+docker_compose_content = docker_compose_server if environment == "server" else docker_compose_localhost
+
+# Write the nginx config to a file
+nginx_conf_path = os.path.join(os.getcwd(), "nginx.conf")
+with open(nginx_conf_path, "w") as f:
+    f.write(nginx_conf_content)
+
+print(f"nginx.conf generated for environment: {environment}")
+
+# Write the docker-compose config to a file
+docker_compose_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
+with open(docker_compose_path, "w") as f:
+    f.write(docker_compose_content)
+
+print(f"docker-compose.yml generated for environment: {environment}")
