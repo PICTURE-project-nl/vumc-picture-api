@@ -1,186 +1,192 @@
 import os
-import re
+import subprocess
+import sys
 
-# Get environment variables with fallback
-environment = os.getenv("ENVIRONMENT", "localhost")
-server_url = os.getenv("SERVER_URL", "localhost")
-network_prefix = os.getenv("NETWORK_PREFIX")
-letsencrypt_directory = os.getenv("LETSENCRYPT_DIRECTORY")
-letsencrypt_key_directory = os.getenv("LETSENCRYPT_KEY_DIRECTORY")
+# Debug logging function
+def log_debug(message):
+    print(f"DEBUG: {message}")
 
-# Strip protocol (http:// or https://) from server_url if present
-server_url = re.sub(r'^https?://', '', server_url)
+# Check for NETWORK_PREFIX or set default
+network_prefix = os.getenv('NETWORK_PREFIX', 'default_prefix')
+log_debug(f"Network prefix set to: {network_prefix}")
 
-# Prompt if NETWORK_PREFIX is missing
-if network_prefix is None:
-    print("Warning: NETWORK_PREFIX is not set.")
-    use_default = input("Do you want to proceed with 'default_prefix' for testing? (yes/no): ").strip().lower()
+# Function to check if NVIDIA GPU is available
+def is_gpu_available():
+    try:
+        # Attempt to run the nvidia-smi command
+        result = subprocess.run(["nvidia-smi"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        log_debug("NVIDIA GPU detected.")
+        return True
+    except FileNotFoundError:
+        log_debug("nvidia-smi command not found; assuming no GPU available.")
+        return False
+    except subprocess.CalledProcessError as e:
+        log_debug(f"nvidia-smi command failed with error: {e}; assuming no GPU available.")
+        return False
+    except Exception as e:
+        log_debug(f"Unexpected error while checking for GPU: {e}; defaulting to CPU mode.")
+        return False
 
-    if use_default == "yes":
-        network_prefix = "default_prefix"
-        print("Proceeding with 'default_prefix' as the network prefix.")
-    else:
-        print("Please set NETWORK_PREFIX before running the script.")
-        exit(1)
+# Set GPU availability based on detection
+gpu_available = '1' if is_gpu_available() else '0'
+log_debug(f"GPU available: {gpu_available} (1 for yes, 0 for no)")
 
-# Verify SSL files for server environment
-if environment == "server":
-    if not os.path.exists("./options-ssl-nginx.conf"):
-        print("Warning: options-ssl-nginx.conf is missing in the root directory. SSL configuration may fail.")
-    if not os.path.isdir("./certificates"):
-        print("Warning: SSL certificates directory is missing; ensure it exists and contains required files for production.")
-
-# Define nginx configuration templates
-nginx_conf_localhost = """
-worker_processes  5;
-worker_rlimit_nofile 8192;
-
-events {
-  worker_connections  4096;
-}
-
-http {
-  default_type application/octet-stream;
-
-  log_format main '$remote_addr - $remote_user [$time_local] $status '
-    '"$request" $body_bytes_sent "$http_referer" '
-    '"$http_user_agent" "$http_x_forwarded_for"';
-
-  sendfile on;
-  tcp_nopush on;
-  server_names_hash_bucket_size 128;
-  client_max_body_size 500M;
-  server_tokens off;
-
-  server {
-    listen 80;
-    server_name localhost;
-
-    location / {
-      proxy_pass http://frontend:8000;
-    }
-
-    location /api {
-      proxy_pass http://api:80;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
-    }
-  }
-}
+# Define the GPU deploy section if a GPU is detected
+gpu_deploy_section = f"""
+  gsi-rads:
+    platform: linux/amd64
+    build:
+      context: ./gsi-rads
+      dockerfile: Dockerfile_prebuilt_tensorflow
+      args:
+        TARGET_ARCH: ${'TARGET_ARCH'}
+    volumes:
+      - gsi_rads_output:/gsi_rads/out
+    links:
+      - redis
+    networks:
+      - internal
+    restart: always
+    environment:
+      - GPU_AVAILABLE={gpu_available}
+      - TARGET_ARCH=arm64
+""" if gpu_available == '1' else """
+  gsi-rads:
+    platform: linux/amd64
+    build:
+      context: ./gsi-rads
+      dockerfile: Dockerfile_prebuilt_tensorflow
+      args:
+        TARGET_ARCH: ${'TARGET_ARCH'}
+    volumes:
+      - gsi_rads_output:/gsi_rads/out
+    links:
+      - redis
+    networks:
+      - internal
+    restart: always
 """
 
-nginx_conf_server = f"""
-
-worker_processes  5;
-worker_rlimit_nofile 8192;
-
-events {{
-  worker_connections  4096;
-}}
-
-http {{
-  default_type application/octet-stream;
-
-  log_format main '$remote_addr - $remote_user [$time_local] $status '
-    '"$request" $body_bytes_sent "$http_referer" '
-    '"$http_user_agent" "$http_x_forwarded_for"';
-
-  sendfile on;
-  tcp_nopush on;
-  server_names_hash_bucket_size 128;
-  client_max_body_size 500M;
-  server_tokens off;
-
-  server {{
-    listen 80;
-    listen 443 ssl;
-    server_name tool.pictureproject.nl;
-
-    ssl_certificate {letsencrypt_key_directory}fullchain.pem;
-    ssl_certificate_key {letsencrypt_key_directory}privkey.pem;
-    include {letsencrypt_directory}/options-ssl-nginx.conf;
-    ssl_dhparam {letsencrypt_directory}/ssl-dhparams.pem;
-
-    location / {{
-      proxy_pass http://frontend:8000;
-    }}
-
-    location /api {{
-      proxy_pass http://api:80;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
-    }}
-  }}
-}}
-
-"""
-
-# Define Docker Compose configuration templates
-docker_compose_localhost = f"""
-version: '3.8'
+# Docker Compose template for vumc-picture-api
+docker_compose_template = f"""
+version: '3'
 
 services:
-  nginx:
-    build: .
-    ports:
-      - "80:80"
+  db:
+    image: mysql:8.0
+    platform: linux/amd64
+    env_file:
+      - secrets.env
     networks:
-      - proxy
+      - internal
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./db_test_data:/docker-entrypoint-initdb.d/
+      - mysql_data:/var/lib/mysql
     restart: always
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
+    container_name: phpmyadmin_container
+    depends_on:
+      - db
+    networks:
+      - internal
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=${{MYSQL_USER}}
+      - PMA_PORT=3306
+      - PMA_PASSWORD=${{MYSQL_PASSWORD}}
+    ports:
+      - 9090:80
+    restart: always
+  redis:
+    image: bitnami/redis:latest
+    platform: linux/amd64
+    networks:
+      - internal
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    restart: always
+  api:
+    build: ./laravel
+    platform: linux/amd64
+    volumes:
+      - ./laravel/src:/var/www/laravel
+      - ./laravel-storage:/var/www/laravel/vumc-picture-api/storage
+    links:
+      - db
+      - redis
+      - registration
+      - segmentation
+      - gsi-rads
+    env_file:
+      - common.env
+      - secrets.env
+    environment:
+      - APP_ENV=local
+      - DB_HOST=db
+      - DB_CONNECTION=mysql
+      - SERVER_NAME=localhost
+      - SERVER_HOSTNAME=localhost
+    networks:
+      - internal
+      - proxy
+      - filtering
+    restart: always
+  registration:
+    build: ./registration
+    volumes:
+      - registered_nii_data:/wdir/out
+    links:
+      - redis
+    networks:
+      - internal
+    restart: always
+  segmentation:
+    build: ./segmentation
+    shm_size: 1gb
+    networks:
+      - internal
+    restart: always
+{gpu_deploy_section}
 
 networks:
   proxy:
     external: true
     name: "{network_prefix}_proxy"
-volumes:
-  certificates:
-"""
-
-docker_compose_server = f"""
-version: '3.8'
-
-services:
-  nginx:
-    build: .
-    ports:
-      - "80:80"
-      - "443:443"
-    networks:
-      - proxy
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - "{letsencrypt_directory}:/etc/letsencrypt/"
-      - ./options-ssl-nginx.conf:/etc/letsencrypt/options-ssl-nginx.conf
-    restart: always
-
-networks:
-  proxy:
+  internal:
+    external: false
+  filtering:
     external: true
-    name: "2ef2919d1441cd450c6ec711ec5cd65c464912dab371ad6f76640f93055f7edd_proxy"
+    name: "{network_prefix}_filtering"
+
 volumes:
-  certificates:
+  mysql_data:
+  registered_nii_data:
+  gsi_rads_output:
 """
 
-# Choose configurations based on the environment
-nginx_conf_content = nginx_conf_server if environment == "server" else nginx_conf_localhost
-docker_compose_content = docker_compose_server if environment == "server" else docker_compose_localhost
+# Write the generated docker-compose.yml file
+def write_docker_compose_file(output_path, content):
+    try:
+        with open(output_path, "w") as f:
+            f.write(content)
+        log_debug(f"docker-compose.generated.yml created successfully at {output_path}")
+    except Exception as e:
+        log_debug(f"Error writing docker-compose.generated.yml: {e}")
+        sys.exit(1)
 
-# Write the nginx config to a file
-nginx_conf_path = os.path.join(os.getcwd(), "nginx.conf")
-with open(nginx_conf_path, "w") as f:
-    f.write(nginx_conf_content)
+# Main execution
+def main():
+    output_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
+    write_docker_compose_file(output_path, docker_compose_template)
 
-print(f"nginx.conf generated for environment: {environment}")
+    # Confirm if the file was successfully created
+    if os.path.exists(output_path):
+        log_debug(f"File successfully created at {output_path}")
+    else:
+        log_debug("Error: docker-compose.generated.yml not found after writing. Check permissions and paths.")
+        sys.exit(1)
 
-# Write the docker-compose config to a file
-docker_compose_path = os.path.join(os.getcwd(), "docker-compose.generated.yml")
-with open(docker_compose_path, "w") as f:
-    f.write(docker_compose_content)
-
-print(f"docker-compose.yml generated for environment: {environment}")
+if __name__ == "__main__":
+    main()

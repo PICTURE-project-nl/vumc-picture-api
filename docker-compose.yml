@@ -1,0 +1,110 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:8.0
+    platform: linux/amd64
+    env_file:
+      - secrets.env
+    networks:
+      - internal
+    volumes:
+      - ./db_test_data:/docker-entrypoint-initdb.d/
+      - mysql_data:/var/lib/mysql
+    restart: always
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
+    container_name: phpmyadmin_container
+    depends_on:
+      - db
+    networks:
+      - internal
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=${MYSQL_USER}
+      - PMA_PORT=3306
+      - PMA_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - 9090:80
+    restart: always
+  redis:
+    image: bitnami/redis:latest
+    platform: linux/amd64
+    networks:
+      - internal
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    restart: always
+  api:
+    build: ./laravel
+    platform: linux/amd64
+    volumes:
+      - ./laravel/src:/var/www/laravel
+      - ./laravel-storage:/var/www/laravel/vumc-picture-api/storage
+    links:
+      - db
+      - redis
+      - registration
+      - segmentation
+      - gsi-rads
+    env_file:
+      - common.env
+      - secrets.env
+    environment:
+      - APP_ENV=local
+      - DB_HOST=db
+      - DB_CONNECTION=mysql
+      - SERVER_NAME=localhost
+      - SERVER_HOSTNAME=localhost
+    networks:
+      - internal
+      - proxy
+      - filtering
+    restart: always
+  registration:
+    build: ./registration
+    volumes:
+      - registered_nii_data:/wdir/out
+    links:
+      - redis
+    networks:
+      - internal
+    restart: always
+  segmentation:
+    build: ./segmentation
+    shm_size: 1gb
+    networks:
+      - internal
+    restart: always
+  gsi-rads:
+    platform: linux/amd64
+    build:
+      context: ./gsi-rads
+      dockerfile: Dockerfile
+      args:
+        TARGET_ARCH: ${TARGET_ARCH}
+    volumes:
+      - gsi_rads_output:/gsi_rads/out
+    links:
+      - redis
+    networks:
+      - internal
+    restart: always
+    environment:
+      - GPU_AVAILABLE=${GPU_AVAILABLE}
+      - TARGET_ARCH=arm64
+networks:
+  proxy:
+    external: true
+    name: "8651f5efd1b17dbd02faad559c12fa3d36bdae18d720c4de3b6cf6627db9cec6_proxy"
+  internal:
+    external: false
+  filtering:
+    external: true
+    name: "8651f5efd1b17dbd02faad559c12fa3d36bdae18d720c4de3b6cf6627db9cec6_filtering"
+
+volumes:
+  mysql_data:
+  registered_nii_data:
+  gsi_rads_output:
