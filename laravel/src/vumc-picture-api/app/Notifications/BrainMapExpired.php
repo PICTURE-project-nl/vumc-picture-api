@@ -40,13 +40,13 @@ class BrainMapExpired extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
-        $url = url('/'));
+        $url = url('/');
         $url = str_replace('http://', 'https://', $url);
         $url = str_replace('localhost/tool.' . getenv('SERVER_HOSTNAME'), 'tool.' . getenv('SERVER_HOSTNAME'), $url);
 
         return (new MailMessage)
             ->subject('Your PICTURE brain map has been removed')
-            ->subject('You can always add a new brain map by visiting our website')
+            ->line('You can always add a new brain map by visiting our website.')
             ->action('Upload new brain map', url($url))
             ->line('Thank you for using our application!');
     }

@@ -2,13 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Support\ZipFile;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Storage;
-use Madzipper;
 use App\Jobs\CreateSlice;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\Process\Process;
@@ -80,7 +80,10 @@ class ConvertDicom implements ShouldQueue
         }
 
 
-        Madzipper::make($storage_dir . 'dicom-unprocessed/' . $this->upload->id . '.zip')->extractTo($storage_dir . 'dicom-unprocessed/' . $this->upload->id);
+        ZipFile::extract(
+            $storage_dir . 'dicom-unprocessed/' . $this->upload->id . '.zip',
+            $storage_dir . 'dicom-unprocessed/' . $this->upload->id
+        );
 
         $scan_dirs = array_diff(scandir($storage_dir . 'dicom-unprocessed/' . $this->upload->id), array('..', '.', '__MACOSX'));
         $scan_dir = '';
@@ -182,7 +185,7 @@ class ConvertDicom implements ShouldQueue
         $this->upload->nifti_metadata = $nifti_metadata;
         $this->upload->save();
 
-        Madzipper::make($niix_out_dir . '.zip')->add($niix_out_dir)->close();
+        ZipFile::createFromDirectory($niix_out_dir . '.zip', $niix_out_dir);
         $this->upload->anonymized_nifti_file_url = $ROOT_URL . '/storage/nifti/' . $this->brain_map->id . '.zip';
         $this->upload->process_state = 'dicom-uploaded';
         $this->upload->save();

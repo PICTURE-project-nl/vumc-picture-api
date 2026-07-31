@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Support\ZipFile;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
@@ -9,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Storage;
 use GuzzleHttp\Client;
-use Madzipper;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
@@ -637,7 +637,7 @@ class Register implements ShouldQueue
             $this->brain_map->save();
 
             $low_res_nifti_dir = rtrim($low_res_nifti_dir, '/');
-            Madzipper::make($low_res_nifti_dir . '.zip')->add($high_res_nifti_dir)->close();
+            ZipFile::createFromDirectory($low_res_nifti_dir . '.zip', $high_res_nifti_dir);
 
             $notification_array = ['segmentize' => $segmentize, 'brain_map_id' => $this->brain_map->id];
             $this->user->notify(new RegistrationSuccess($notification_array));
