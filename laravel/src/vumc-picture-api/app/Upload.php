@@ -3,12 +3,12 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
-use Emadadly\LaravelUuid\Uuids;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class Upload extends Model
 {
 
-    use Uuids;
+    use HasUuids;
 
     /**
      * Indicates if the IDs are auto-incrementing.

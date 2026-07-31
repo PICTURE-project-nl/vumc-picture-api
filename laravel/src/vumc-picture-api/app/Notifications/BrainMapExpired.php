@@ -40,7 +40,7 @@ class BrainMapExpired extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
-        $url = url('/'));
+        $url = url('/');
         $url = str_replace('http://', 'https://', $url);
         $url = str_replace('localhost/tool.' . getenv('SERVER_HOSTNAME'), 'tool.' . getenv('SERVER_HOSTNAME'), $url);
 
