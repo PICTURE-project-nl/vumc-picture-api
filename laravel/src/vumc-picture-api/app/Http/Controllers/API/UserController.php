@@ -7,6 +7,7 @@ use App\PasswordReset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Validator;
 use App\Notifications\SignupActivate;
 use App\Notifications\PasswordResetRequest;
@@ -96,7 +97,7 @@ class UserController extends Controller
         }
         $input = $request->all();
         $input['password'] = bcrypt($input['password']);
-        $input['activation_token'] = str_random(60);
+        $input['activation_token'] = Str::random(60);
         $user = User::create($input);
         $user->notify(new SignupActivate($user));
         $responseObj = $user;
@@ -280,7 +281,7 @@ class UserController extends Controller
 
         $passwordReset = PasswordReset::updateOrCreate(
             ['email' => $user->email],
-            ['email' => $user->email, 'token' => str_random(60)]
+            ['email' => $user->email, 'token' => Str::random(60)]
         );
 
         $passwordReset->save();
